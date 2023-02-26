@@ -1,0 +1,17 @@
+npx create-next-app --example with-typescript lawangin-app
+cd lawangin-app
+yarn add eslint prettier husky next-seo --dev
+npx eslint --init
+echo '{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Next.js Dev",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["dev"],
+      "port": 9229
+    }
+  ]
+}' > .vscode/launch.json

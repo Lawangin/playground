@@ -1,0 +1,99 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      SubnetIds:
+        - !Ref PrivateSubnet
+  DB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      SubnetGroupName: !Ref DBSubnetGroup
+      AllocatedStorage: 20
+      Engine: postgres
+      DBInstanceClass: db.t2.micro
+      VpcSecurityGroupIds: []
+      PubliclyAccessible: false
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      Ingress:
+        - Protocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrBlocks:
+            - !Ref PublicSubnet
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      VpcId: !Ref VPC
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+        - Image: nextjs-app:latest
+          PortMappings:
+            - ContainerPort: 3000
+              HostPort: 3000
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Internal: false
+      SecurityGroups:
+        - !Ref SecurityGroup
+      Subnets:
+        - !Ref PublicSubnet
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: 200
+      Port: 3000
+      Protocol: HTTP
+      VpcId: !Ref VPC
+
+
+# To update a CloudFormation stack, you can use the Update stack option in the CloudFormation console, or you can use the aws cloudformation update-stack command with the AWS CLI.
+
+# To delete a CloudFormation stack, you can use the Delete stack option in the CloudFormation console, or you can use the aws cloudformation delete-stack command with the AWS CLI.
+
+# Here is an example of how to create a CloudFormation stack using the AWS CLI:
+
+# Copy code
+# aws cloudformation create-stack \
+#   --stack-name my-stack \
+#   --template-body file://template.yml \
+#   --parameters ParameterKey=KeyName,ParameterValue=mykey \
+#   --region us-east-1
+# This command creates a stack named my-stack in the US East (N. Virginia) region, using the template file template.yml and the parameter KeyName with the value mykey

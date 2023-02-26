@@ -1,0 +1,172 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      SubnetIds:
+        - !Ref PrivateSubnet
+  DB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      SubnetGroupName: !Ref DBSubnetGroup
+      AllocatedStorage: 20
+      Engine: postgres
+      DBInstanceClass: db.t2.micro
+      VpcSecurityGroupIds: []
+      PubliclyAccessible: false
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      Ingress:
+        - Protocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrBlocks:
+            - !Ref PublicSubnet
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      VpcId: !Ref VPC
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Internal: false
+      SecurityGroups:
+        - !Ref SecurityGroup
+      Subnets:
+        - !Ref PublicSubnet
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckTimeoutSeconds: 5
+     
+Resources:
+  TaskDefinition1:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+        - Name: nextjs-app-1
+          Image: nextjs-app-1:latest
+          PortMappings:
+            - ContainerPort: 3000
+              HostPort: 3000
+  TaskDefinition2:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+        - Name: nextjs-app-2
+          Image: nextjs-app-2:latest
+          PortMappings:
+            - ContainerPort: 3001
+              HostPort: 3001
+  TaskDefinition3:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+        - Name: nextjs-app-3
+          Image: nextjs-app-3:latest
+          PortMappings:
+            - ContainerPort: 3002
+              HostPort: 3002
+  TaskDefinition4:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+        - Name: nextjs-app-4
+          Image: nextjs-app-4:latest
+          PortMappings:
+            - ContainerPort: 3003
+              HostPort: 3003
+  Service1:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref TaskDefinition1
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PrivateSubnet
+          AssignPublicIp: ENABLED
+      LoadBalancers:
+        - ContainerName: nextjs-app-1
+          ContainerPort: 3000
+          TargetGroupArn: !Ref TargetGroup
+  Service2:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref TaskDefinition2
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PrivateSubnet
+          AssignPublicIp: ENABLED
+      LoadBalancers:
+        - ContainerName: nextjs-app-2
+          ContainerPort: 3001
+          TargetGroupArn: !Ref TargetGroup
+    Service3:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref TaskDefinition3
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PrivateSubnet
+          AssignPublicIp: ENABLED
+      LoadBalancers:
+        - ContainerName: nextjs-app-3
+          ContainerPort: 3002
+          TargetGroupArn: !Ref TargetGroup
+  Service4:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref TaskDefinition4
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PrivateSubnet
+          AssignPublicIp: ENABLED
+      LoadBalancers:
+        - ContainerName: nextjs-app-4
+          ContainerPort: 3003
+          TargetGroupArn: !Ref TargetGroup
+
